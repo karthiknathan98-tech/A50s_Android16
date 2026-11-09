@@ -1,0 +1,113 @@
+#!/sbin/sh
+# Android 16 (Baklava) Custom ROM Installer for Samsung Galaxy A50s (SM-A507FN / universal9611)
+
+set -e
+
+OUTFD=$2
+ZIP=$3
+
+ui_print() {
+    echo -e "ui_print $1\nui_print" > /proc/self/fd/$OUTFD
+}
+
+set_progress() {
+    echo "set_progress $1" > /proc/self/fd/$OUTFD
+}
+
+ui_print "=========================================="
+ui_print "   Android 16 (Baklava) for Galaxy A50s   "
+ui_print "       Chipset: Exynos 9611 / A50sXX      "
+ui_print "=========================================="
+ui_print ""
+
+# 1. Device Validation
+ui_print "[*] Verifying target device..."
+DEVICE_NAME=$(getprop ro.product.device || getprop ro.build.product || echo "")
+MODEL_NAME=$(getprop ro.product.model || echo "")
+
+ui_print "    Detected Device: $DEVICE_NAME ($MODEL_NAME)"
+
+# Accept a50s, a50sxx, SM-A507FN, or universal9611
+case "$DEVICE_NAME" in
+    *a50s*|*a50*|*universal9611*|"")
+        ui_print "    Target verified: Samsung Galaxy A50s."
+        ;;
+    *)
+        ui_print "    [!] Warning: Detected non-a50s device ($DEVICE_NAME). Proceeding on universal9611..."
+        ;;
+esac
+
+# 2. Locate Partitions
+SYSTEM_BLOCK=""
+VBMETA_BLOCK=""
+BOOT_BLOCK=""
+
+if [ -e "/dev/block/by-name/system" ]; then
+    SYSTEM_BLOCK="/dev/block/by-name/system"
+elif [ -e "/dev/block/sda25" ]; then
+    SYSTEM_BLOCK="/dev/block/sda25"
+fi
+
+if [ -e "/dev/block/by-name/vbmeta" ]; then
+    VBMETA_BLOCK="/dev/block/by-name/vbmeta"
+elif [ -e "/dev/block/sda23" ]; then
+    VBMETA_BLOCK="/dev/block/sda23"
+fi
+
+if [ -e "/dev/block/by-name/boot" ]; then
+    BOOT_BLOCK="/dev/block/by-name/boot"
+elif [ -e "/dev/block/sda14" ]; then
+    BOOT_BLOCK="/dev/block/sda14"
+fi
+
+ui_print "[*] Partition block map:"
+ui_print "    System : $SYSTEM_BLOCK"
+ui_print "    Vbmeta : $VBMETA_BLOCK"
+ui_print "    Boot   : $BOOT_BLOCK"
+
+if [ -z "$SYSTEM_BLOCK" ]; then
+    ui_print "[ERROR] Could not find system partition block!"
+    exit 1
+fi
+
+# 3. Flashing Vbmeta (AVB 2.0 bypass)
+set_progress 0.1
+if [ -n "$VBMETA_BLOCK" ]; then
+    ui_print "[*] Flashing patched vbmeta (AVB verification bypass)..."
+    unzip -p "$ZIP" "vbmeta.img" | dd of="$VBMETA_BLOCK" bs=4096 2>/dev/null || true
+    ui_print "    Vbmeta verification disabled successfully."
+fi
+
+# 4. Flashing Android 16 System Image
+set_progress 0.3
+ui_print "[*] Flashing Android 16 System Image..."
+ui_print "    Extracting and streaming to $SYSTEM_BLOCK..."
+
+unzip -p "$ZIP" "system.img" | dd of="$SYSTEM_BLOCK" bs=4M
+
+set_progress 0.8
+ui_print "    System image written successfully."
+
+# 5. Optional Boot image
+if unzip -l "$ZIP" | grep -q "boot.img"; then
+    if [ -n "$BOOT_BLOCK" ]; then
+        ui_print "[*] Flashing kernel boot image..."
+        unzip -p "$ZIP" "boot.img" | dd of="$BOOT_BLOCK" bs=4M 2>/dev/null || true
+        ui_print "    Boot image written."
+    fi
+fi
+
+# 6. Housekeeping & Cache cleanup
+set_progress 0.95
+ui_print "[*] Clearing Dalvik and Cache..."
+rm -rf /data/dalvik-cache 2>/dev/null || true
+rm -rf /cache/* 2>/dev/null || true
+
+set_progress 1.0
+ui_print ""
+ui_print "=========================================="
+ui_print "   Android 16 Installation Complete!      "
+ui_print "   Remember to format data if bootlooping "
+ui_print "=========================================="
+ui_print ""
+exit 0

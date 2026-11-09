@@ -1,0 +1,21 @@
+# Large ROM binaries and images (managed locally via build scripts / releases)
+out/
+*.img
+*.zip
+*.tar
+*.tar.md5
+*.bin
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# macOS metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs & temporary files
+*.log
+*.tmp
+*.bak
