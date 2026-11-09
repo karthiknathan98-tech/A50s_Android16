@@ -4,10 +4,13 @@ a50s_ctl.py - Control & Flashing Management Utility for Samsung Galaxy A50s
 Supports Android 16 (Baklava) Offline ROM flashing and hardware diagnostics.
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import subprocess
 from pathlib import Path
+from typing import Optional, List
 
 REPO_ROOT = Path(__file__).resolve().parent
 
